@@ -89,6 +89,10 @@ def rag_pdf(title):
     # Persist database
     vectorstore.persist()
     
+def run_rag(query: str):
+    qa_chain = serve_rag()
+    return qa_chain.invoke(query)
+    
 if __name__ == '__main__':
     import warnings
     warnings.filterwarnings('ignore', category=DeprecationWarning)
