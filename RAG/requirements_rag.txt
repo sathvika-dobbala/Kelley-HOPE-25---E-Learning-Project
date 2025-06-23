@@ -274,6 +274,7 @@ qcloud_cos==3.3.6
 qdrant_client==1.14.3
 qianfan==0.4.12.3
 qtpy==2.4.3
+Quart==0.20.0
 rank_bm25==0.2.2
 rank_llm==0.21.0
 rapidfuzz==3.13.0
