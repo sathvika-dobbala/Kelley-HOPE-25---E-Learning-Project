@@ -4,22 +4,26 @@ export default function ConnectedChatInterface() {
   const [inputValue, setInputValue] = useState('');
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [apiUrl] = useState('http://localhost:5000'); // Updated for RAG backend
+  const [apiUrl] = useState('http://localhost:5000/v1/chat/completions'); // Updated for RAG backend
 
   function handleChange(e) {
     setInputValue(e.target.value);
   }
 
+  
   async function sendMessage(message) {
     try {
       // Updated to use a more generic RAG endpoint
-      const response = await fetch(`${apiUrl}/chat`, {
+      const response = await fetch(`${apiUrl}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          query: message,  // Changed from 'messages' to 'query'
+          model: 'qwen3:8b',
+          messages: [
+            {role: 'user', content: message}
+          ],  // Changed from 'messages' to 'query'
           // Add any other parameters your RAG backend expects
         })
       });
@@ -31,7 +35,7 @@ export default function ConnectedChatInterface() {
       const data = await response.json();
       
       // Adjust this based on your backend's response structure
-      return data.response || data.answer || data.content || data;
+      return data.choices?.[0]?.message?.content;
     } catch (error) {
       console.error('Error sending message:', error);
       throw error;
