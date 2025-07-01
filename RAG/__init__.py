@@ -1,9 +1,16 @@
 from quart import Quart, request, jsonify
-from rag import run_rag
+from quart_cors import cors
+from rag import run_rag, tts
 import time
 import uuid
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 app = Quart(__name__)
+# Enable CORS for all routes
+app = cors(app, allow_origin="*")
 
 # Mimic OpenAI chat completion endpoint
 @app.route('/v1/chat/completions', methods=['POST'])
@@ -14,7 +21,7 @@ async def chat_completions():
         if not data:
             return jsonify({'error': 'No data provided'}), 400
         
-        model = data.get('model', 'qwen3:8b')
+        model = data.get('model', os.getenv('RAG_MODEL'))
         messages = data.get('messages', [])
         if not messages:
             return jsonify({'error': 'No messages provided'}), 400
@@ -26,12 +33,13 @@ async def chat_completions():
         
         # Provides instructional context
         # Note: Not sure if it is working as expected
-        system_promt = (
-            'You are a helpful assistant that answers questions.'
-        )
+        # system_promt = (
+            # 'You are a helpful assistant that answers questions.'
+        # )
         
         # Sends prompt to RAG system
-        prompt_input = f'{system_promt}\n\nUser: {user_query}'
+        # prompt_input = f'{system_promt}\n\nUser: {user_query}'
+        prompt_input = f'user: {user_query}'
         rag_response = run_rag(prompt_input)
         
         # Constructing the response in the OpenAI API format
@@ -40,18 +48,14 @@ async def chat_completions():
             'object': 'chat.completion',
             'created': int(time.time()),
             'model': model,
-            'choices': [{
+            'choices': [
+            {
                 'index': 0,
-                'messages': [
-                    {
-                        'role': 'system',
-                        'content': ''
-                    },
-                    {
-                        'role': 'assistant',
-                        'content': rag_response['result']
-                    }
-                ],
+                'message':{
+                    'role': 'assistant',
+                    'content': rag_response['result']
+                }
+                ,
                 'finish_reason': 'stop'
             }],
             # Placeholder as Ollama does not provide usage stats
@@ -62,6 +66,8 @@ async def chat_completions():
             }
         }    
         
+        rag_result = rag_response['result']
+        tts(rag_result)  # Call TTS function to play the audio response
         return jsonify(response), 200
     
     except Exception as e:

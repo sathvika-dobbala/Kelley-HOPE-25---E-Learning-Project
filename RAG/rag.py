@@ -8,9 +8,15 @@ from langchain_ollama import OllamaEmbeddings
 from langchain_community.llms import Ollama
 from langchain_chroma import Chroma
 from langchain.chains import RetrievalQA
+import os
 import logging
 
 def serve_rag():
+    from dotenv import load_dotenv
+    from pathlib import Path
+    dotenv_path = Path(__file__).resolve().parents[1] / '.env'
+    load_dotenv(dotenv_path)
+    
     """Initialize the RAG system with Ollama and ChromaDB."""
     logger = logging.getLogger(__name__)
     
@@ -29,8 +35,8 @@ def serve_rag():
     logger.warning(f'Number of documents in database: {vectorstore._collection.count()}')
     
     # Initialize LLM with Ollama
-    logger.info('Initializing model -- Qwen3:8b. . .')
-    llm = Ollama(model = 'qwen3:8b') # Specify specific model here
+    logger.info(f'Initializing model -- {os.getenv('RAG_MODEL')}. . .')
+    llm = Ollama(model = os.getenv('RAG_MODEL')) # Specify specific model here
     
     # Create RetrievalQA Chain
     logger.info('Creating RetrievalQA chain. . .')
@@ -88,12 +94,31 @@ def rag_pdf(title):
     
     # Persist database
     vectorstore.persist()
+
+def tts(response):
+    import torch
+    import torchaudio as ta
+    from chatterbox.tts import ChatterboxTTS
+    import soundfile as sf
+    import sounddevice as sd
     
+    DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+    model = ChatterboxTTS.from_pretrained(device=DEVICE)
+    text = response
+    if '<think>' in text:
+        text = text.split('<think>')[1]
+    result = model.generate(text)
+    audio = result.squeeze(0).cpu().numpy()
+    sd.play(audio, samplerate = 22050)
+    sd.wait()
+
+ 
 def run_rag(query: str):
     qa_chain = serve_rag()
     return qa_chain.invoke(query)
     
 if __name__ == '__main__':
+    
     import warnings
     warnings.filterwarnings('ignore', category=DeprecationWarning)
     logging.basicConfig(
@@ -101,9 +126,9 @@ if __name__ == '__main__':
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     
-    
     # rag_pdf('hpb1.pdf') # Uncomment to process the PDF and store embeddings
     qa_chain = serve_rag() # Initialize the RAG system
     
     response = qa_chain.invoke("Who is the main antagonist in the book?")
-    print(response['result'])
+    rag_response = response['result']
+    tts(rag_response)
