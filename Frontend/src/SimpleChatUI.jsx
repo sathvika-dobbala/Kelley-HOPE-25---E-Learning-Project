@@ -35,7 +35,7 @@ export default function ConnectedChatInterface() {
       const data = await response.json();
       
       // Adjust this based on your backend's response structure
-      return data.choices?.[0]?.message?.content;
+      return data.choices?.[0]?.message?.content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
     } catch (error) {
       console.error('Error sending message:', error);
       throw error;
