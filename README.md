@@ -2,8 +2,11 @@
 
 # How to run
 Add .env file with RAG_MODEL = 'your model name here'
+
 Install dependencies from requirements_rag.txt
-Run __init__.py from RAG
+
+Run __init__.py
+
 Read Frontend README to run web interface
 
 # Currently Implemented
