@@ -1,10 +1,8 @@
 from quart import Quart, request, jsonify
 from quart_cors import cors
-from rag import run_rag, tts
-import time
-import uuid
+from rag import run_rag, tts, tts_async
+import time, uuid, os, asyncio
 from dotenv import load_dotenv
-import os
 
 load_dotenv()
 
@@ -31,16 +29,9 @@ async def chat_completions():
         if not user_query:
             return jsonify({'error': 'No user query found'}), 400
         
-        # Provides instructional context
-        # Note: Not sure if it is working as expected
-        # system_promt = (
-            # 'You are a helpful assistant that answers questions.'
-        # )
-        
-        # Sends prompt to RAG system
-        # prompt_input = f'{system_promt}\n\nUser: {user_query}'
         prompt_input = f'user: {user_query}'
         rag_response = run_rag(prompt_input)
+        rag_result = rag_response['result']
         
         # Constructing the response in the OpenAI API format
         response = {
@@ -66,8 +57,7 @@ async def chat_completions():
             }
         }    
         
-        rag_result = rag_response['result']
-        tts(rag_result)  # Call TTS function to play the audio response
+        asyncio.create_task(tts_async(rag_result))
         return jsonify(response), 200
     
     except Exception as e:

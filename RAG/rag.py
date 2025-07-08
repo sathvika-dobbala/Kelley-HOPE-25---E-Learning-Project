@@ -35,7 +35,7 @@ def serve_rag():
     logger.warning(f'Number of documents in database: {vectorstore._collection.count()}')
     
     # Initialize LLM with Ollama
-    logger.info(f'Initializing model -- {os.getenv('RAG_MODEL')}. . .')
+    # logger.info(f'Initializing model -- {os.getenv('RAG_MODEL')}. . .')
     llm = Ollama(model = os.getenv('RAG_MODEL')) # Specify specific model here
     
     # Create RetrievalQA Chain
@@ -94,25 +94,43 @@ def rag_pdf(title):
     
     # Persist database
     vectorstore.persist()
+    
+    
+import torch
+import torchaudio as ta
+from TTS.api import TTS
 
-def tts(response):
-    import torch
-    import torchaudio as ta
-    from chatterbox.tts import ChatterboxTTS
+# Load TTS model on import
+# DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+# chatterbox_model = ChatterboxTTS.from_pretrained(device = DEVICE)
+coqui_tts = TTS("tts_models/en/ljspeech/fast_pitch", progress_bar=False)
+
+def tts(response: str):
     import soundfile as sf
     import sounddevice as sd
     
-    DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-    model = ChatterboxTTS.from_pretrained(device=DEVICE)
     text = response
+    
+    # Removes <think> </think> from LLM output
+    # Only necessary for Qwen3 and Deepseek-r1 models
     if '<think>' in text:
-        text = text.split('<think>')[1]
-    result = model.generate(text)
-    audio = result.squeeze(0).cpu().numpy()
-    sd.play(audio, samplerate = 22050)
+        text = text.split('<think>')[1].split('</think>')[0]
+        
+    # Generate audio
+    wav = coqui_tts.tts(text)
+    
+    # Set audio tensors for playback with default samplerate
+    # audio = result.squeeze(0).cpu().numpy()
+    sd.play(wav, samplerate = 22050)
     sd.wait()
 
- 
+
+async def tts_async(text: str):
+    import asyncio
+    ''' Run TTS in background'''
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, tts, text)
+    
 def run_rag(query: str):
     qa_chain = serve_rag()
     return qa_chain.invoke(query)
