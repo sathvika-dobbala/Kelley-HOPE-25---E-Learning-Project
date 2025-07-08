@@ -13,6 +13,7 @@
 git clone https://github.com/sathvika-dobbala/Kelley-HOPE-25---E-Learning-Project
 ```
 2. Setup environmental variables
+
 Create .env file in root and specify RAG model
 ```
 RAG_MODEL = 'model_name'
