@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { use, useState } from 'react';
 
 export default function ConnectedChatInterface() {
   const [inputValue, setInputValue] = useState('');
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
   const [apiUrl] = useState('http://localhost:5000/v1/chat/completions'); // Updated for RAG backend
 
   function handleChange(e) {
@@ -42,11 +43,10 @@ export default function ConnectedChatInterface() {
     }
   }
 
-  async function handleSubmit(e) {
-    e.preventDefault();
-    if (!inputValue.trim() || isLoading) return;
-
-    const userMessage = inputValue.trim();
+  async function handleSubmit(e, overrideText = null) {
+    if (e?.preventDefault) e.preventDefault();
+    const userMessage = overrideText ?? inputValue.trim();
+    if (!userMessage || isLoading) return;
     
     // Add user message to chat
     setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
@@ -68,6 +68,40 @@ export default function ConnectedChatInterface() {
     } finally {
       setIsLoading(false);
     }
+  }
+
+  function startListening() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      alert('Speech Recognition API is not supported in this browser.');
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+    recognition.continuous = false;
+
+    recognition.onstart = () => {
+      setIsRecording(true);
+    };
+
+    recognition.onend = () => {
+      setIsRecording(false);
+    };
+
+    recognition.onerror = (event) => {
+      console.error('Speech recognition error:', event.error);
+      setIsRecording(false);
+    };
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      handleSubmit(null, transcript);
+    };
+
+    recognition.start();
   }
 
   return (
@@ -231,6 +265,77 @@ export default function ConnectedChatInterface() {
         </div>
       </div>
       
+      {/* Voice input button */}
+      <div style = {{
+        position: 'fixed',
+        bottom: '0',
+        left: '0',
+        right: '0',
+        backgroundColor: 'white',
+        borderTop: '1px solid #e5e7eb',
+        padding: '20px 32px',
+        boxShadow: '0 -2px 10px rgba(0, 0, 0, 0.1)'
+      }}>
+        <div style={{ display: 'flex', gap: '12px', maxWidth: '800px', margin: '0 auto' }}>
+          <button
+            onClick={startListening}
+            disabled={isLoading}
+            style={{
+              padding: '0 16px',
+              border: 'none',
+              backgroundColor: isRecording ? '#10b981' : '#f3f4f6',
+              color: isRecording ? 'white' : '#374151',
+              borderRadius: '50%',
+              fontSize: '20px',
+              cursor: 'pointer',
+              width: '44px',
+              height: '44px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+            title="Click to speak"
+          >Test
+          </button>
+          <input
+            type="text"
+            value={inputValue}
+            onChange={handleChange}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleSubmit(e);
+            }}
+            placeholder="Ask a question about your documents..."
+            disabled={isLoading}
+            style={{
+              flex: 1,
+              padding: '12px 16px',
+              border: '1px solid #d1d5db',
+              borderRadius: '24px',
+              outline: 'none',
+              fontSize: '14px',
+              backgroundColor: isLoading ? '#f9fafb' : 'white',
+              opacity: isLoading ? 0.7 : 1
+            }}
+          />
+          <button
+            onClick={handleSubmit}
+            disabled={!inputValue.trim() || isLoading}
+            style={{
+              padding: '12px 24px',
+              backgroundColor: isLoading || !inputValue.trim() ? '#9ca3af' : '#3b82f6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '24px',
+              cursor: isLoading || !inputValue.trim() ? 'not-allowed' : 'pointer',
+              fontSize: '14px',
+              fontWeight: '500',
+              minWidth: '80px'
+            }}
+          >
+            {isLoading ? '...' : 'Send'}
+          </button>
+        </div>
+      </div>
       {/* CSS for spinning animation */}
       <style>{`
         @keyframes spin {
