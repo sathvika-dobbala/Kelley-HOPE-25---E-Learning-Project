@@ -96,8 +96,6 @@ def rag_pdf(title):
     vectorstore.persist()
     
     
-import torch
-import torchaudio as ta
 from TTS.api import TTS
 
 # Load TTS model on import
@@ -105,11 +103,9 @@ from TTS.api import TTS
 # chatterbox_model = ChatterboxTTS.from_pretrained(device = DEVICE)
 coqui_tts = TTS("tts_models/en/ljspeech/fast_pitch", progress_bar=False)
 
-def tts(response: str):
+def tts(text: str):
     import soundfile as sf
     import sounddevice as sd
-    
-    text = response
     
     # Removes <think> </think> from LLM output
     # Only necessary for Qwen3 and Deepseek-r1 models
