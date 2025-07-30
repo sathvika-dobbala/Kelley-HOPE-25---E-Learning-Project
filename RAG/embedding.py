@@ -6,7 +6,7 @@ import logging
 class EmbeddingHandler:
     
     def __init__(self, embedded_model, collection: Chroma):
-        self.endpoint = 'http://localhost:11434/api/embeddings'
+        # self.endpoint = 'http://localhost:11434/api/embeddings'
         self.embedded_model = embedded_model
         self.collection = collection
         self.text = []

@@ -2,7 +2,7 @@ from langchain_community.document_loaders import PyMuPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 class PDFProcessor:
-    def __init__(self, file_name, chunk_size = 1000, chunk_overlap = 100, separators=None):
+    def __init__(self, file_name, chunk_size, chunk_overlap, separators=None):
         self._file_path = f'./example_data/{file_name}'
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
