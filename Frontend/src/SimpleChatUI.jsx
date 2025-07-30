@@ -1,4 +1,11 @@
-import React, { use, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
+import StreamingAvatar, {
+  AvatarQuality,
+  StreamingEvents,
+  ElevenLabsModel,
+  VoiceEmotion,
+  TaskType,
+} from '@heygen/streaming-avatar';
 
 export default function ConnectedChatInterface() {
   const [inputValue, setInputValue] = useState('');
@@ -11,7 +18,6 @@ export default function ConnectedChatInterface() {
     setInputValue(e.target.value);
   }
 
-  
   async function sendMessage(message) {
     try {
       // Updated to use a more generic RAG endpoint
@@ -59,6 +65,14 @@ export default function ConnectedChatInterface() {
       
       // Add assistant response to chat
       setMessages(prev => [...prev, { role: 'assistant', content: assistantResponse }]);
+
+      // Using HeyGen Avatar
+      await avatarRef.current?.speak({
+        text: assistantResponse,
+        task_type: TaskType.REPEAT,
+        taskMode: 'SYNC'
+      })
+
     } catch (error) {
       // Add error message to chat
       setMessages(prev => [...prev, { 
@@ -104,6 +118,37 @@ export default function ConnectedChatInterface() {
     recognition.start();
   }
 
+  const avatarRef = useRef(null);
+
+  useEffect(() => {
+    const avatar = new StreamingAvatar({ token: '' }); // Retrieve HeyGen API Key | TODO: Use env variable
+    avatarRef.current = avatar;
+
+    avatar.on(StreamingEvents.STREAM_READY, (event) => {
+      const stream = event.detail;
+      const videoElement = document.getElementById('heygen-avatar');
+      if (videoElement) {
+        videoElement.srcObject = stream;
+      }
+    });
+
+    avatar.createStartAvatar({
+      avatarName: 'Elenora_IT_Sitting_public',
+      quality: AvatarQuality.Low,
+      voice: {
+        rate: 1.0,
+        emotion: VoiceEmotion.EXCITED,
+        model: ElevenLabsModel.eleven_flash_v2_5,
+      },
+      language: 'en'
+    });
+
+    // Optional: cleanup on unmount
+    return () => {
+      avatar?.stop?.();
+    };
+  }, []);
+
   return (
     <div style={{ height: '100vh', width: '100vw', position: 'relative', backgroundColor: '#f9fafb' }}>
       {/* Header */}
@@ -128,7 +173,17 @@ export default function ConnectedChatInterface() {
           }}></span>
         </p>
       </div>
-      
+
+      {/* Heygen Avatar */}
+      <div style={{ display: 'flex', justifyContent: 'center', margin: '24px 0' }}>
+        <video
+          id="heygen-avatar"
+          autoPlay
+          muted
+          style={{ width: 240, height: 320, borderRadius: 16, background: '#000' }}
+        />
+      </div>
+
       {/* Messages area */}
       <div style={{ 
         height: 'calc(100vh - 200px)', 

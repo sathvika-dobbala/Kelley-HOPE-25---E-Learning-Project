@@ -49,7 +49,7 @@ async def chat_completions():
                 ,
                 'finish_reason': 'stop'
             }],
-            # Placeholder as Ollama does not provide usage stats
+            # ToDo: Collect usage stats if needed
             'usage': {
                 'prompt_tokens': 0,
                 'completion_tokens': 0,
@@ -57,7 +57,7 @@ async def chat_completions():
             }
         }    
         
-        asyncio.create_task(tts_async(rag_result))
+        # asyncio.create_task(tts_async(rag_result))
         return jsonify(response), 200
     
     except Exception as e:

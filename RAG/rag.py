@@ -6,120 +6,121 @@ from pdfprocess import PDFProcessor
 from embedding import EmbeddingHandler
 from langchain_ollama import OllamaEmbeddings
 from langchain_community.llms import Ollama
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_chroma import Chroma
 from langchain.chains import RetrievalQA
 import os
 import logging
 
-def serve_rag():
-    from dotenv import load_dotenv
-    from pathlib import Path
-    dotenv_path = Path(__file__).resolve().parents[1] / '.env'
-    load_dotenv(dotenv_path)
+import yaml
+# Loading config from config YAML
+with open('RAG/config.yaml', 'r') as f:
+    CONFIG = yaml.safe_load(f)
     
+from dotenv import load_dotenv
+from pathlib import Path
+# Loading environment variables
+dotenv_path = Path(__file__).resolve().parents[1] / '.env'
+load_dotenv(dotenv_path)
+    
+def serve_rag():
     """Initialize the RAG system with Ollama and ChromaDB."""
+    
     logger = logging.getLogger(__name__)
     
-    # Initialize Embedding Model
-    logger.info('Initializing Embedding Model. . .')
-    embedding_model = OllamaEmbeddings(model = 'nomic-embed-text')
+    embedding_model = OllamaEmbeddings(model = CONFIG['embedding_model']['name'])
     
-    # Connect to ChromaDB
     logger.info('Connecting to ChromaDB. . .')
     vectorstore = Chroma(
         embedding_function = embedding_model,
-        persist_directory = './chroma_db',
-        collection_name = 'harry_potter',
+        persist_directory = CONFIG['chroma_db']['persist_directory'],
+        collection_name = CONFIG['chroma_db']['collection_name'],
     )
     
     logger.warning(f'Number of documents in database: {vectorstore._collection.count()}')
+    if vectorstore._collection.count() == 0:
+        logger.error('No documents found in the vector store. Please ensure embeddings are processed and stored.')
+        return
     
-    # Initialize LLM with Ollama
-    # logger.info(f'Initializing model -- {os.getenv('RAG_MODEL')}. . .')
-    llm = Ollama(model = os.getenv('RAG_MODEL')) # Specify specific model here
+    llm = Ollama(model = CONFIG['llm']['ollama_model'])
     
-    # Create RetrievalQA Chain
+    # Utilizing Gemini API
+    # llm = ChatGoogleGenerativeAI(
+    #     model = os.getenv('GEMINI_MODEL'),
+    #     google_api_key = os.getenv('GOOGLE_API_KEY'),
+    #     temperature = 0
+    # )
+    
     logger.info('Creating RetrievalQA chain. . .')
     qa_chain = RetrievalQA.from_chain_type(
         llm = llm,
-        chain_type = 'stuff',
-        retriever = vectorstore.as_retriever(),
+        chain_type = CONFIG['retrieval_qa']['chain_type'],
+        retriever = vectorstore.as_retriever(search_kwargs={'k': CONFIG['retrieval_qa']['retrieve_k']}),
         return_source_documents = True
     )
     
     return qa_chain
 
-def rag_pdf(title):
+def embed_pdf(title):
     
     logger = logging.getLogger(__name__)
     
-    # Initialize PDF Processor
     logger.info('Initializing PDF Processor. . .')
     pdf_processor = PDFProcessor(
         file_name = title,
-        chunk_size = 1000,
-        chunk_overlap = 100,
+        chunk_size = CONFIG['pdf_processor']['chunk_size'],
+        chunk_overlap = CONFIG['pdf_processor']['chunk_overlap'],
     )
     
-    # Chunk PDF
     chunks = pdf_processor.process()
     
-    # Set embedding model
-    embedding_model = OllamaEmbeddings(model = 'nomic-embed-text')
+    embedding_model = OllamaEmbeddings(model = CONFIG['embedding_model']['name'])
     
-    # Initialize ChromaDB Vector Store
     logger.info('Initializing ChromaDB Vector Store. . .')
+    
     try:
         vectorstore = Chroma(
-            collection_name = 'harry_potter',
             embedding_function = embedding_model,
-            persist_directory = './chroma_db',
+            persist_directory = CONFIG['chroma_db']['persist_directory'],
+            collection_name = CONFIG['chroma_db']['collection_name'],
         )
     except Exception as e:
         logger.error(f'Error initializing ChromaDB: {e}')
         return
     
-    # Embedding Handler
     embedding_handler = EmbeddingHandler(
-        embedded_model = 'nomic-embed-text',
+        embedded_model = embedding_model,
         collection = vectorstore,
     )
     
-    # Process and Store Embeddings
     logger.info('Processing and storing embeddings. . .')
     if not chunks:
         logger.warning('No chunks to process. Exiting.')
         return
-    embedding_handler.embed_documents(chunks)
     
-    # Persist database
-    vectorstore.persist()
+    embedding_handler.embed_documents(chunks)
     
     
 from TTS.api import TTS
 
 # Load TTS model on import
 # DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-# chatterbox_model = ChatterboxTTS.from_pretrained(device = DEVICE)
-coqui_tts = TTS("tts_models/en/ljspeech/fast_pitch", progress_bar=False)
+coqui_tts = TTS(CONFIG['tts']['model'], progress_bar=False)
 
 def tts(text: str):
     import soundfile as sf
     import sounddevice as sd
     
     # Removes <think> </think> from LLM output
-    # Only necessary for Qwen3 and Deepseek-r1 models
+    # Only necessary for Thinking Models like Qwen3 and Deepseek-r1
     if '<think>' in text:
-        text = text.split('<think>')[1].split('</think>')[0]
+        text = text.split('</think>')[1]
         
     # Generate audio
     wav = coqui_tts.tts(text)
     
-    # Set audio tensors for playback with default samplerate
-    # audio = result.squeeze(0).cpu().numpy()
     sd.play(wav, samplerate = 22050)
     sd.wait()
-
 
 async def tts_async(text: str):
     import asyncio
@@ -140,9 +141,9 @@ if __name__ == '__main__':
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     
-    # rag_pdf('hpb1.pdf') # Uncomment to process the PDF and store embeddings
+    # embed_pdf('redbook.pdf') # Uncomment to process the PDF and store embeddings
     qa_chain = serve_rag() # Initialize the RAG system
     
-    response = qa_chain.invoke("Who is the main antagonist in the book?")
+    response = qa_chain.invoke("Can you summarize chapter 5: routing protocols in detail?")
     rag_response = response['result']
-    tts(rag_response)
+    print(rag_response)
