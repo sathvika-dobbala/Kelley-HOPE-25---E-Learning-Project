@@ -42,6 +42,7 @@ def serve_rag():
         logger.error('No documents found in the vector store. Please ensure embeddings are processed and stored.')
         return
     
+    # ToDo: Add switch for different LLMs
     llm = Ollama(model = CONFIG['llm']['ollama_model'])
     
     # Utilizing Gemini API
